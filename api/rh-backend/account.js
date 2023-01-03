@@ -1,3 +1,6 @@
+
+require('dotenv').config();
+
 const Moralis = require('moralis-v1/node');
 const { parseJSON } = require('../../utils/jsonParser');
 
@@ -95,7 +98,50 @@ const addLoggedInUser = async (sessionToken) => {
     }
 };
 
+/**
+ * `retrieveUserBySessionToken` retrieves a user's data by their session token.
+ * @param {string} sessionToken the session token of the user
+ * @return {Object} the user's data
+ */
+const retrieveUserBySessionToken = async (sessionToken) => {
+    try {
+        // we query the Session database for the specific `sessionToken`.
+        const SessionDB = new Moralis.Query('_Session');
+        SessionDB.equalTo('sessionToken', sessionToken);
+        // we get the query result here
+        const sessionQuery = await SessionDB.first({ useMasterKey: true });
+
+        // if the result returns undefined (meaning it doesn't exist), we throw an error.
+        if (!sessionQuery) {
+            throw new Error('Session token not found');
+        }
+
+        // we parse the result into a JSON object as a string
+        const parsedSessionQuery = parseJSON(sessionQuery);
+        // we get the user object ID from the parsed result
+        const userObjId = parsedSessionQuery.user.objectId;
+
+        // now, we query the User database via the user object ID to obtain the user's data.
+        const UserDB = new Moralis.Query('_User');
+        UserDB.equalTo('objectId', userObjId);
+        const userQuery = await UserDB.first({ useMasterKey: true });
+
+        // if the result returns undefined (meaning it doesn't exist), we throw an error.
+        if (!userQuery) {
+            throw new Error('User not found');
+        }
+
+        // we parse the result into a JSON object as a string
+        const parsedUserQuery = parseJSON(userQuery);
+
+        return parsedUserQuery;
+    } catch (err) {
+        throw err;
+    }
+};
+
 module.exports = {
     userLogin,
     addLoggedInUser,
+    retrieveUserBySessionToken,
 };

@@ -4,6 +4,10 @@ require('dotenv').config();
 const Moralis = require('moralis-v1/node');
 const { parseJSON } = require('../../utils/jsonParser');
 
+const serverUrl = process.env.MORALIS_SERVERURL;
+const appId = process.env.MORALIS_APPID;
+const masterKey = process.env.MORALIS_MASTERKEY;
+
 /**
  * `userLogin` logs the user in to Moralis
  * @param {String} login the user's login
@@ -99,6 +103,27 @@ const addLoggedInUser = async (sessionToken) => {
 };
 
 /**
+ * `removeLoggedInUser` removes a logged in user from `RHLoggedInUsers` after logging out of Realm Hunter.
+ * @param {string} address the ETH address of the user
+ */
+const removeLoggedInUser = async (address) => {
+    try {
+        const RHLoggedInUsersDB = new Moralis.Query('RHLoggedInUsers');
+        RHLoggedInUsersDB.equalTo('address', address);
+
+        const query = await RHLoggedInUsersDB.first({ useMasterKey: true });
+
+        if (!query) {
+            throw new Error('User not found');
+        }
+
+        query.destroy({ useMasterKey: true });
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
  * `retrieveUserBySessionToken` retrieves a user's data by their session token.
  * @param {string} sessionToken the session token of the user
  * @return {Object} the user's data
@@ -143,5 +168,6 @@ const retrieveUserBySessionToken = async (sessionToken) => {
 module.exports = {
     userLogin,
     addLoggedInUser,
+    removeLoggedInUser,
     retrieveUserBySessionToken,
 };

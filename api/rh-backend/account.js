@@ -126,7 +126,7 @@ const removeLoggedInUser = async (address) => {
 /**
  * `retrieveUserBySessionToken` retrieves a user's data by their session token.
  * @param {string} sessionToken the session token of the user
- * @return {Object} the user's data
+ * @return {object} the user's data
  */
 const retrieveUserBySessionToken = async (sessionToken) => {
     try {
@@ -165,9 +165,139 @@ const retrieveUserBySessionToken = async (sessionToken) => {
     }
 };
 
+/**
+ * `addUserData` adds an instance of the user to `WebAppData` and `RealmHunterData`.
+ * @param {string} userObjId the user's object ID (from _User)
+ * @param {string} playfabId OPTIONAL. will add to the playfabId column if added. otherwise, `addPlayfabId` will need to be called.
+ * @return {Object} an 'ok' status
+ */
+const addUserData = async (userObjId, playfabId) => {
+    try {
+        const WebAppDataDB = Moralis.Object.extend('WebAppData');
+        const webAppDataDB = new WebAppDataDB();
+
+        const RealmHunterDataDB = Moralis.Object.extend('RealmHunterData');
+        const realmHunterDataDB = new RealmHunterDataDB();
+
+        // we check if the data exists. if they do, we throw an error.
+        const WebAppData = new Moralis.Query('WebAppData');
+        const RealmHunterData = new Moralis.Query('RealmHunterData');
+        const UserData = new Moralis.Query('_User');
+
+        UserData.equalTo('objectId', userObjId);
+
+        const getUser = await UserData.first({ useMasterKey: true });
+        const parsedUser = parseJSON(getUser);
+        const ethAddress = parsedUser.ethAddress;
+
+        WebAppData.matchesQuery('user', UserData);
+        RealmHunterData.matchesQuery('user', UserData);
+
+        const webAppQuery = await WebAppData.first({ useMasterKey: true });
+        const realmHunterQuery = await RealmHunterData.first({ useMasterKey: true });
+
+        // if the query results exist, we throw an error since we want them to be empty.
+        if (webAppQuery) {
+            throw new Error('User web app data already exists.');
+        }
+
+        if (realmHunterQuery) {
+            throw new Error('User\'s Realm Hunter data already exists.');
+        }
+
+        webAppDataDB.set('user', {
+            __type: 'Pointer',
+            className: '_User',
+            objectId: userObjId,
+        });
+
+        if (ethAddress) {
+            webAppDataDB.set('ethAddress', ethAddress);
+            realmHunterDataDB.set('ethAddress', ethAddress);
+        }
+
+        webAppDataDB.set('webAppTier', 'newcomer');
+
+        // if the playfabId is given, we also add this.
+        if (playfabId) {
+            webAppDataDB.set('playfabId', playfabId);
+            // although playfab id exists, the user's account is just created.
+            // we will assume (with high probability) that the user will NOT be able to claim just yet.
+            webAppDataDB.set('canClaim', false);
+            webAppDataDB.set('canDeposit', true);
+        } else {
+            // claiming & depositing requires a playfabId, so these will be disabled for now.
+            webAppDataDB.set('canClaim', false);
+            webAppDataDB.set('canDeposit', false);
+        }
+
+        realmHunterDataDB.set('user', {
+            __type: 'Pointer',
+            className: '_User',
+            objectId: userObjId,
+        });
+
+        await webAppDataDB.save(null, { useMasterKey: true });
+        await realmHunterDataDB.save(null, { useMasterKey: true });
+
+        return {
+            status: 'ok',
+        };
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
+ * `checkPlayfabIdExists` checks if a user has a playfabId stored in our database.
+ * the playfabId MUST exist in both `WebAppData` and `RealmHunterData`to return a `true` value.
+ * @param {string} userObjId the user's object ID (from _User)
+ * @return {boolean} true if the playfabId exists in both databases, false otherwise.
+ */
+const checkPlayfabIdExists = async (userObjId) => {
+    try {
+        let bothExists = false;
+
+        const WebAppData = new Moralis.Query('WebAppData');
+        WebAppData.equalTo('user', {
+            __type: 'Pointer',
+            className: '_User',
+            objectId: userObjId,
+        });
+
+        const RealmHunterData = new Moralis.Query('RealmHunterData');
+        RealmHunterData.equalTo('user', {
+            __type: 'Pointer',
+            className: '_User',
+            objectId: userObjId,
+        });
+
+        const webAppQuery = await WebAppData.first({ useMasterKey: true });
+        const realmHunterQuery = await RealmHunterData.first({ useMasterKey: true });
+
+        if (!webAppQuery) {
+            throw new Error('User web app data does not exist.');
+        }
+
+        if (!realmHunterQuery) {
+            throw new Error('User\'s Realm Hunter data does not exist.');
+        }
+
+        if (webAppQuery && realmHunterQuery) {
+            bothExists = true;
+        }
+
+        return bothExists;
+    } catch (err) {
+        throw err;
+    }
+};
+
 module.exports = {
     userLogin,
     addLoggedInUser,
     removeLoggedInUser,
     retrieveUserBySessionToken,
+    addUserData,
+    checkPlayfabIdExists,
 };

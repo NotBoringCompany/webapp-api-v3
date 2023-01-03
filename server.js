@@ -14,6 +14,11 @@ const masterKey = process.env.MORALIS_MASTERKEY;
 app.use(cors());
 app.use(express.json());
 
+// ROUTES
+const rhAccount = require('./routes/account');
+
+app.use('/rhAccount', rhAccount);
+
 app.listen(port, async () => {
     console.log(`Listening from port ${port}`);
 

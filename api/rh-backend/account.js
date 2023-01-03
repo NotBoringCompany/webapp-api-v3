@@ -293,6 +293,140 @@ const checkPlayfabIdExists = async (userObjId) => {
     }
 };
 
+/**
+ * `getPlayfabId` gets a user's playfab ID given their eth address
+ * @param {string} address the user's eth address
+ * @return {string} the user's playfabId
+ */
+const getPlayfabId = async (address) => {
+    try {
+        const WebAppData = new Moralis.Query('WebAppData');
+        WebAppData.equalTo('address', address);
+
+        const webAppQuery = await WebAppData.first({ useMasterKey: true });
+
+        if (!webAppQuery) {
+            throw new Error('User web app data does not exist.');
+        }
+
+        const parsedWebAppQuery = parseJSON(webAppQuery);
+        const playfabId = parsedWebAppQuery.playfabId;
+
+        return playfabId;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
+ * `getUserIdFRomUniqueHash` gets a user's object ID given their unique hash
+ * @param {string} uniqueHash the user's unique hash obtained after logging in to moralis
+ * @return {string} the user's object ID
+ */
+const getUserIdFromUniqueHash = async (uniqueHash) => {
+    try {
+        const UserDB = new Moralis.Query('_User');
+        UserDB.equalTo('uniqueHash', uniqueHash);
+
+        const result = await UserDB.first({ useMasterKey: true });
+
+        if (!result) {
+            throw new Error('User does not exist.');
+        }
+
+        const objectId = (parseJSON(result)).objectId;
+
+        return objectId;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
+ * `checkUserDataExists` checks if a user's data exists in both WebAppData and RealmHunterData
+ * @param {string} userObjId the user's object ID
+ * @return {boolean} true if the user's data exists in both databases, false otherwise.
+ */
+const checkUserDataExists = async (userObjId) => {
+    try {
+        // checks if user data exists in both WebAppData and RealmHunterData
+        let bothExists = false;
+
+        const WebAppData = new Moralis.Query('WebAppData');
+        WebAppData.equalTo('user', {
+            __type: 'Pointer',
+            className: '_User',
+            objectId: userObjId,
+        });
+
+        const RealmHunterData = new Moralis.Query('RealmHunterData');
+        RealmHunterData.equalTo('user', {
+            __type: 'Pointer',
+            className: '_User',
+            objectId: userObjId,
+        });
+
+        const webAppQuery = await WebAppData.first({ useMasterKey: true });
+        const realmHunterQuery = await RealmHunterData.first({ useMasterKey: true });
+
+        if (webAppQuery && realmHunterQuery) {
+            bothExists = true;
+        }
+
+        return bothExists;
+    } catch (err) {
+        throw err;
+    }
+};
+
+/**
+ * `addPlayfabId` adds a user's playfab ID to both WebAppData and RealmHunterData
+ * @param {string} userObjId the user's object ID
+ * @param {string} playfabId the user's playfab ID
+ * @return {object} an 'ok' status
+ */
+const addPlayfabId = async (userObjId, playfabId) => {
+    try {
+        const WebAppData = new Moralis.Query('WebAppData');
+        const RealmHunterData = new Moralis.Query('RealmHunterData');
+
+        WebAppData.equalTo('user', {
+            __type: 'Pointer',
+            className: '_User',
+            objectId: userObjId,
+        });
+
+        RealmHunterData.equalTo('user', {
+            __type: 'Pointer',
+            className: '_User',
+            objectId: userObjId,
+        });
+
+        const webAppQuery = await WebAppData.first({ useMasterKey: true });
+        const realmHunterQuery = await RealmHunterData.first({ useMasterKey: true });
+
+        if (!webAppQuery) {
+            throw new Error('User web app data does not exist.');
+        }
+
+        if (!realmHunterQuery) {
+            throw new Error('User\'s Realm Hunter data does not exist.');
+        }
+
+        webAppQuery.set('playfabId', playfabId);
+        realmHunterQuery.set('playfabId', playfabId);
+
+        await webAppQuery.save(null, { useMasterKey: true });
+        await realmHunterQuery.save(null, { useMasterKey: true });
+
+        return {
+            status: 'ok',
+        };
+    } catch (err) {
+        throw err;
+    }
+};
+
 module.exports = {
     userLogin,
     addLoggedInUser,
@@ -300,4 +434,8 @@ module.exports = {
     retrieveUserBySessionToken,
     addUserData,
     checkPlayfabIdExists,
+    getPlayfabId,
+    getUserIdFromUniqueHash,
+    checkUserDataExists,
+    addPlayfabId,
 };

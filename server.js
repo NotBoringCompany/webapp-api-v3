@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 // ROUTES
-const rhAccount = require('./routes/account');
+const rhAccount = require('./routes/rh-backend/account');
 
 app.use('/rhAccount', rhAccount);
 

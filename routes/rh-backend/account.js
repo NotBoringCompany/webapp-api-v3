@@ -4,7 +4,7 @@ const {
     removeLoggedInUser,
     retrieveUserBySessionToken,
     userLogin,
-} = require('../api/rh-backend/account');
+} = require('../../api/rh-backend/account');
 const router = express.Router();
 
 router.post('/addLoggedInUser', async (req, res) => {
